@@ -42,7 +42,7 @@ void usage(char * program)
 void insurance(int connection_fd, char * buffer)
 {
     bzero(buffer, BUFFER_SIZE);
-    int chars_read;
+    int chars_read = 0;
     char option;
 
     chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);//insurance is possible
@@ -57,9 +57,9 @@ void insurance(int connection_fd, char * buffer)
 
         //Send answer
         scanf("%s", buffer);
-        printf("option: %s\n", buffer);
+        //printf("option: %s\n", buffer);
 
-        if(buffer == "y")
+        if(buffer[0] == 'y')
         {
             send(connection_fd, buffer, strlen(buffer), 0);
 
@@ -67,18 +67,31 @@ void insurance(int connection_fd, char * buffer)
 
             printf("%s", buffer);
             
+            //send new bet
             scanf("%s", buffer);
             send(connection_fd, buffer, strlen(buffer), 0);
-
-            /*chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
-            printf("%s", buffer);
-            scanf("%s", buffer);
-            send(connection_fd, buffer, strlen(buffer), 0);*/
         }else{
             send(connection_fd, buffer, strlen(buffer), 0);
         }
     }else{
-        send(connection_fd, "ACK", strlen("ACK")+1, 0);//ACK insurance possible
+        send(connection_fd, "ACK", strlen("ACK")+1, 0);//ACK insurance
+    }
+}
+
+void checkforwin(int connection_fd, char * buffer)
+{
+    int chars_read = 0;
+    bzero(buffer, BUFFER_SIZE);
+
+    //if dealer is natural
+    chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
+    send(connection_fd, "ACK", strlen("ACK")+1, 0);
+    if(buffer == "1")
+    {
+        chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
+        printf("%s", buffer);
+    }else{
+
     }
 }
 
@@ -104,31 +117,13 @@ void communicationLoop(int connection_fd)
     //if insurance is possible
     insurance(connection_fd, buffer);
 
-    /*//Check if insurance == true
-    chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
-    printf("Buffer: %s\n", buffer);
-    if(buffer[0] == '1')
+    //Check for win communication
+    printf("checking for win\n");
+    checkforwin(connection_fd, buffer);
+        
+    /*while(1)
     {
-        char option;
-
-        printf("Do you want to place an insurance bet?\n");
-        printf("(y) yes / (n) no\n");
-        scanf("%s", &option);
-        
-        if(option == 'y')
-        {
-            printf("Type your additional bet\n");
-            scanf("%s", buffer);
-            send(connection_fd, buffer, strlen(buffer), 0);
-        }else{
-            send(connection_fd, "ACK", strlen("ACK")+1, 0);
-        }
-        
-    }*/
-        
-    while(1)
-    {
-        /*printf("Enter a number: ");
+        printf("Enter a number: ");
         // Prepare the message
         scanf("%s", buffer);
         send(connection_fd, buffer, strlen(buffer)+1, 0);
@@ -144,8 +139,8 @@ void communicationLoop(int connection_fd)
         {
             printf("Congratulations!\n");
             break;
-        }*/
-    }
+        }
+    }*/
     
     // Close the socket to the client
     close(connection_fd);

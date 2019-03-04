@@ -22,65 +22,110 @@ void communicationLoop(int connection_fd);
 
 typedef struct {
     float bet;
+    float winnings;
     float insuranceBet;
     char * cards;
-    int isBlackjack;
+    int totalSum;
+    //flags
+    int finsuranceBet;
+    int hasBlackjack;
+    int stand;
+    int notBusted;
+    int doubleDown;
 }Player;
 
 typedef struct {
     char * cards;
+    int totalSum;
+    int winnings;
+    //flags
     int isNatural;
+    int finished;
 }Dealer;
 
-char isBlackjack(char * cards)
+int isBelow21(char * cards, int * totalSum)
 {
-    int totalSum = 0;
+    *totalSum = 0;
+    printf("totalsum start: %d\n", *totalSum);
     int aces_count = 0;
 
     for(int i=0; i<strlen(cards); i++)
     {
+        printf("strlen(cards) = %ld\n", strlen(cards));
         switch (cards[i])
         {
             case 'A':
                 //default value of A as 11
-                totalSum += 11;
+                *totalSum += 11;
                 aces_count++;
+                printf("Is an Ace\n");
+                printf("Totalsum = %d\n", *totalSum);
                 break;
             case 'J':
-                totalSum += 10;
+                *totalSum += 10;
+                printf("Its a J\n");
                 break;
             case 'Q':
-                totalSum += 10;
+                *totalSum += 10;
+                printf("Its a Q\n");
                 break;
             case 'K':
-                totalSum += 10;
+                *totalSum += 10;
+                printf("Its a K\n");
                 break;
             case '0':
-                totalSum += 10;
+                *totalSum += 10;
+                printf("Is a ten\n");
                 break;
             default:
-                totalSum += cards[i] - 48;
+                *totalSum += cards[i] - 48;
         }
     }
 
-    if(totalSum <= 21)
+    printf("Total sum from below21(): %d\n", *totalSum);
+
+    if(*totalSum <= 21)
     {
-        return '1';
+        return 1;
     }else{
-        for(int i=0; i<aces_count; i++)
+        for(int i=0; i<aces_count; i++)//try with A=1
         {
-            if(totalSum <= 21) //try with A=1
+            if(*totalSum <= 21)
             {
                 return 1;
             }else{
-                totalSum -= 10;
+                *totalSum -= 10;
             }
         }
 
-        if(totalSum > 21)
+        if(*totalSum > 21)
         {
-            return '0';
+            return 0;
         }
+    }
+    return 0;
+}
+
+int isNatural(Dealer * dealer)
+{
+    isBelow21(dealer->cards, &dealer->totalSum);
+    printf("Dealer totalsum = %d\n", dealer->totalSum);
+    if(dealer->totalSum == 21)
+    {
+        return 1;
+    }else{
+        return 0;
+    }
+}
+
+int isBlackjack(Player * player)
+{
+    isBelow21(player->cards, &player->totalSum);
+    if(player->totalSum == 21)
+    {
+        return 1;
+    }else{
+        return 0;
     }
 }
 
@@ -103,7 +148,8 @@ void shuffleCards(Player * player, Dealer * dealer)
         dealer->cards[i] = generateCard();
     }
 
-    dealer->cards[1] = 'A';
+    //dealer->cards[0] = '0';
+    //dealer->cards[1] = 'A';
 
     printf("dealer cards: %s\n", dealer->cards);
     printf("player cards: %s\n", player->cards);
@@ -111,7 +157,7 @@ void shuffleCards(Player * player, Dealer * dealer)
 
 void showCards(int connection_fd, char * buffer, int hidden, Player * player, Dealer * dealer)
 {
-    int chars_read;
+    int chars_read = 0;
     bzero(buffer, BUFFER_SIZE);
     if(hidden == 1)
     {
@@ -139,7 +185,6 @@ void showCards(int connection_fd, char * buffer, int hidden, Player * player, De
     }
 
     chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
-    //printf("ACK showcards: %s\n", buffer);
 }
 
 void insurance(int connection_fd, char * buffer, Player * player, Dealer * dealer)
@@ -153,8 +198,6 @@ void insurance(int connection_fd, char * buffer, Player * player, Dealer * deale
         send(connection_fd, buffer, strlen(buffer), 0);//insurance is possible
         chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);//Receive ACK
 
-        //printf("ACK (insurance possible): %s\n", buffer);
-
         strcpy(buffer, "Do you want to place an insurance?\n");
         strcat(buffer, "(y) yes / (n) no\n");
         send(connection_fd, buffer, strlen(buffer), 0);//Menu
@@ -162,13 +205,14 @@ void insurance(int connection_fd, char * buffer, Player * player, Dealer * deale
         chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
         printf("Option received: %s\n", buffer);
 
-        if(buffer == "y")
+        if(buffer[0] == 'y')
         {
             strcpy(buffer, "Type your bet:\n");
             send(connection_fd, buffer, strlen(buffer), 0);
 
             recvMessage(connection_fd, buffer, BUFFER_SIZE);
-            sscanf(buffer, "%f", player->insuranceBet);
+            sscanf(buffer, "%f", &player->insuranceBet);
+            player->finsuranceBet = 1;
 
             printf("Insurance bet received: %f\n", player->insuranceBet);
         }
@@ -179,9 +223,93 @@ void insurance(int connection_fd, char * buffer, Player * player, Dealer * deale
     }
 }
 
+void checkforwin(int connection_fd, char *buffer, Player * player, Dealer * dealer)
+{
+    int chars_read = 0;
+
+    /*dealer->totalSum = 101;
+    player->totalSum = 101;*/
+
+    int tmp = ;
+    isBelow21(dealer->cards, &tmp);
+    printf("tmp: %d\n", tmp);
+
+    printf("Dealer total sum: %d\n", dealer->totalSum);
+    printf("Player total sum: %d\n", player->totalSum);
+
+    if(isNatural(dealer) == 1)//if dealer is natural
+    {
+        //send conditional flag to client
+        send(connection_fd, "1", strlen("1")+1, 0);
+        chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
+
+        showCards(connection_fd, buffer, 0, player, dealer);//Coordinate messages with client
+        printf("The dealer has a natural!\n");
+        if(isBlackjack(player) == 1)
+        {
+            player->winnings += player->bet;
+            player->bet = 0;
+            printf("Push: The dealer and the player both have Blackjack\n");
+        }else{
+            dealer->winnings += player->bet;
+            player->bet = 0;
+            printf("The house wins! Player looses his bet\n");
+        }
+
+        if(player->finsuranceBet == 1)
+        {
+            player->winnings += 3*player->insuranceBet;
+
+            printf("Player has insurance bet, He gets 2:1 return (%f)\n", 3*player->insuranceBet);
+
+            player->insuranceBet = 0;
+        }
+    }else{
+        //send conditional flag to client
+        send(connection_fd, "0", strlen("1")+1, 0);
+        chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
+
+        if(player->finsuranceBet == 1)
+        {
+            printf("Player looses his insurance bet\n");
+
+            dealer->winnings += player->insuranceBet;
+            player->insuranceBet = 0;
+        }
+
+        if(isBlackjack(player) == 1)
+        {
+            printf("Player wins! He gets 1:1 return (%f)\n", 2*player->bet);
+
+            player->winnings += player->bet;
+        }else{
+            if((player->stand == 1 || player->doubleDown == 1) && player->notBusted == 1)
+            {
+                if(dealer->finished == 1)
+                {
+                    isBelow21(player->cards, &player->totalSum);
+                    isBelow21(dealer->cards, &dealer->totalSum);
+                    if(player->totalSum > dealer->totalSum)
+                    {
+                        printf("Player wins! He gets 1:1 return (%f)\n", player->bet);
+
+                        player->winnings += 2*player->bet;
+                        player->bet = 0;
+                    }else{
+                        printf("The house wins! Player looses his bet\n");
+
+                        dealer->winnings += player->bet;
+                        player->bet = 0;
+                    }
+                }
+            }
+        }
+    }
+}
+
 void game(int connection_fd, char * buffer)
 {
-    int chars_read;
+    int chars_read = 0;
 
     Player player;
     Dealer dealer;
@@ -199,6 +327,9 @@ void game(int connection_fd, char * buffer)
 
     //if insurance is possible
     insurance(connection_fd, buffer, &player, &dealer);
+
+    //Check for win
+    checkforwin(connection_fd, buffer, &player, &dealer);
 }
 
 int main(int argc, char * argv[])
@@ -280,92 +411,18 @@ void communicationLoop(int connection_fd)
     char buffer[BUFFER_SIZE];
     int chars_read = 0;
 
-    /*//Cards
-    char playerCards[21];
-    char dealerCards[21];
-    int playerCount, dealerCount;
-    playerCount = dealerCount = 0;
-
-    //Bet
-    float curBet = 0;
-    float insuranceBet = 0;
-
-    //flags
-    char insurance = '0';
-    char naturalFlag = '0';
-
-    //Generate cards for current game
-    for(int i=0; i<2; i++)
-    {
-        playerCards[i] = generateCard();
-        dealerCards[i] = generateCard();
-    }
-
-    dealerCards[1] = '0';
-
-    printf("Dealer cards: %s\n", dealerCards);
-    printf("Player cards: %s\n", playerCards);*/
-
     // Handshake
     chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
     send(connection_fd, "READY", strlen("READY")+1, 0);
 
-    game(connection_fd, buffer);
-
-    /*//Receieve the bet from the player / client
-    chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
-    if(chars_read <= 0)
-    {
-        printf("bet not received, exiting\n");
-        close(connection_fd);
-        return;
-    }
-
-    //Save bet into float variable
-    sscanf(buffer, "%f", &curBet);
-    printf("Received bet:\t%f\n", curBet);
-
-    //Send initial generated cards to client
-    strcpy(buffer, dealerCards);
-    buffer[0] = '*'; //Hiding dealer's first card
-    send(connection_fd, buffer, strlen(buffer), 0);
-    chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
-    strcpy(buffer, playerCards);
-    send(connection_fd, buffer, strlen(buffer), 0);
-    chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
-
-    //If dealer's face up card is a 10 or A --> Insurance
-    if(dealerCards[1] == 'A' || dealerCards[1] == '0')
-    {
-        insurance = '1';
-        //Send result to client
-        strcpy(buffer, &insurance);
-        send(connection_fd, buffer, strlen(buffer), 0);
-        //Receive insurance bet
-        chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
-        sscanf(buffer, "%f", &insuranceBet);
-        printf("Insurance bet received: %f\n", insuranceBet);
-    }else{
-        //Send result to client
-        strcpy(buffer, &insurance);
-        send(connection_fd, buffer, strlen(buffer), 0);
-        chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
-    }
-
-
-    //Check if dealer has Blackjack
-    if(isBlackjack(dealerCards) == 1)
-    {
-
-    }*/
+    game(connection_fd, buffer);    
     
-    
-    while(1)
+    /*while(1)
     {
         //Receive the bet from the player
         //sprintf(buffer, "Your cards:\n");
 
-        /*// Get the guess from the user
+        // Get the guess from the user
         chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
         if (chars_read <= 0)
             break;
@@ -380,8 +437,8 @@ void communicationLoop(int connection_fd)
             sprintf(buffer, "Try a higher number");
         if (num == secret)
             sprintf(buffer, "Right");
-        send(connection_fd, buffer, strlen(buffer)+1, 0);*/
-    }
+        send(connection_fd, buffer, strlen(buffer)+1, 0);
+    }*/
     
     // Close the socket to the client
     close(connection_fd);
