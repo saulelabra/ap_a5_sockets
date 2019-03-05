@@ -1,3 +1,6 @@
+//Saúl Enrique Labra Cruz A01020725
+//a5_sockets
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,20 +42,27 @@ void usage(char * program)
     exit(EXIT_SUCCESS);
 }
 
+void getCards(int connection_fd, char * buffer)
+{
+    bzero(buffer, BUFFER_SIZE);
+    recvMessage(connection_fd, buffer, BUFFER_SIZE);
+    printf("%s", buffer);
+    send(connection_fd, "ACK", strlen("ACK")+1, 0);
+}
+
 void insurance(int connection_fd, char * buffer)
 {
     bzero(buffer, BUFFER_SIZE);
-    int chars_read = 0;
     char option;
 
-    chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);//insurance is possible
+    recvMessage(connection_fd, buffer, BUFFER_SIZE);//insurance is possible
     option = buffer[0];
     if(option == '1')
     {
         send(connection_fd, "ACK", strlen("ACK")+1, 0);//ACK insurance possible
 
         //Print menu
-        chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);//menu
+        recvMessage(connection_fd, buffer, BUFFER_SIZE);//menu
         printf("%s", buffer);
 
         //Send answer
@@ -63,7 +73,7 @@ void insurance(int connection_fd, char * buffer)
         {
             send(connection_fd, buffer, strlen(buffer), 0);
 
-            chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
+            recvMessage(connection_fd, buffer, BUFFER_SIZE);
 
             printf("%s", buffer);
             
@@ -80,67 +90,172 @@ void insurance(int connection_fd, char * buffer)
 
 void checkforwin(int connection_fd, char * buffer)
 {
-    int chars_read = 0;
     bzero(buffer, BUFFER_SIZE);
-
-    //if dealer is natural
-    chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
+    recvMessage(connection_fd, buffer, BUFFER_SIZE);
     send(connection_fd, "ACK", strlen("ACK")+1, 0);
-    if(buffer == "1")
-    {
-        chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
-        printf("%s", buffer);
-    }else{
+    getCards(connection_fd, buffer);
 
-    }
+    /*//if dealer is natural
+    recvMessage(connection_fd, buffer, BUFFER_SIZE);
+    send(connection_fd, "ACK", strlen("ACK")+1, 0);
+    if(buffer[0] == '1')
+    {
+        printf("Dealer has a natural!\n");
+        getCards(connection_fd, buffer);
+
+        //if player has Blackjack
+        recvMessage(connection_fd, buffer, BUFFER_SIZE);
+        send(connection_fd, "ACK", strlen("ACK")+1, 0);
+        if(buffer[0] == '1')
+        {
+            recvMessage(connection_fd, buffer, BUFFER_SIZE);
+            send(connection_fd, "ACK", strlen("ACK")+1, 0);
+
+            printf("%s", buffer);            
+        }else{
+            recvMessage(connection_fd, buffer, BUFFER_SIZE);
+            send(connection_fd, "ACK", strlen("ACK")+1, 0);
+
+            printf("%s", buffer);  
+        }
+        recvMessage(connection_fd, buffer, BUFFER_SIZE);
+        send(connection_fd, "ACK", strlen("ACK")+1, 0);
+        printf("%s", buffer); 
+
+        //if player has insurance bet
+        recvMessage(connection_fd, buffer, BUFFER_SIZE);
+        send(connection_fd, "ACK", strlen("ACK")+1, 0);
+        if(buffer[0] == '1')
+        {
+            recvMessage(connection_fd, buffer, BUFFER_SIZE);
+            send(connection_fd, "ACK", strlen("ACK")+1, 0);
+
+            printf("%s", buffer);  
+        }
+    }else{
+        //if player has insurance bet
+        recvMessage(connection_fd, buffer, BUFFER_SIZE);
+        send(connection_fd, "ACK", strlen("ACK")+1, 0);
+        if(buffer[0] == '1')
+        {
+            recvMessage(connection_fd, buffer, BUFFER_SIZE);
+            send(connection_fd, "ACK", strlen("ACK")+1, 0);
+
+            printf("%s", buffer);
+        }
+
+        //if player has Blackjack
+        recvMessage(connection_fd, buffer, BUFFER_SIZE);
+        send(connection_fd, "ACK", strlen("ACK")+1, 0);
+        if(buffer[0] == '1')
+        {
+            recvMessage(connection_fd, buffer, BUFFER_SIZE);
+            send(connection_fd, "ACK", strlen("ACK")+1, 0);
+
+            printf("%s", buffer);
+        }else{
+            //if player has doubledown
+            recvMessage(connection_fd, buffer, BUFFER_SIZE);
+            send(connection_fd, "ACK", strlen("ACK")+1, 0);
+            if(buffer[0] == '1')
+            {
+                recvMessage(connection_fd, buffer, BUFFER_SIZE);
+                send(connection_fd, "ACK", strlen("ACK")+1, 0);
+
+                printf("%s", buffer);
+
+                //if dealer has finished
+                recvMessage(connection_fd, buffer, BUFFER_SIZE);
+                send(connection_fd, "ACK", strlen("ACK")+1, 0);
+                if(buffer[0] == '1')
+                {
+                    recvMessage(connection_fd, buffer, BUFFER_SIZE);
+                    send(connection_fd, "ACK", strlen("ACK")+1, 0);
+
+                    printf("%s", buffer);
+
+                    //if player sum is greater than the dealer's
+                    recvMessage(connection_fd, buffer, BUFFER_SIZE);
+                    send(connection_fd, "ACK", strlen("ACK")+1, 0);
+                    if(buffer[0] == '1')
+                    {
+                        recvMessage(connection_fd, buffer, BUFFER_SIZE);
+                        send(connection_fd, "ACK", strlen("ACK")+1, 0);
+
+                        printf("%s", buffer);
+                    }else{
+                        recvMessage(connection_fd, buffer, BUFFER_SIZE);
+                        send(connection_fd, "ACK", strlen("ACK")+1, 0);
+
+                        printf("%s", buffer);
+                    }
+                }
+            }
+        }
+        recvMessage(connection_fd, buffer, BUFFER_SIZE);
+        send(connection_fd, "ACK", strlen("ACK")+1, 0);
+    }*/
+}
+
+void playerActions(int connection_fd, char * buffer)
+{
+    char option;
+    char busted;
+
+    do{
+        bzero(buffer, BUFFER_SIZE);
+        recvMessage(connection_fd, buffer, BUFFER_SIZE);//receive menu
+        printf("%s", buffer);
+
+        //send option
+        scanf("%s", buffer);
+        send(connection_fd, buffer, strlen(buffer), 0);
+
+        option = buffer[0];
+
+        if(option == '2')
+        {
+            getCards(connection_fd, buffer); 
+
+            recvMessage(connection_fd, buffer, BUFFER_SIZE);
+            send(connection_fd, "ACK", strlen("ACK")+1, 0);
+
+            busted = buffer[0];
+        }
+    }while(option == 2 && busted == 0);
 }
 
 void communicationLoop(int connection_fd)
 {
     char buffer[BUFFER_SIZE];
-    int chars_read = 0;
     
     // Handshake
     send(connection_fd, "START", strlen("START")+1, 0);
-    chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
+    recvMessage(connection_fd, buffer, BUFFER_SIZE);
+
+    //Send available Money to server
+    printf("Welcome to Blackjack, type the amount of available Money\n");
+    scanf("%s", buffer);
+    send(connection_fd, buffer, strlen(buffer), 0);
+    recvMessage(connection_fd, buffer, BUFFER_SIZE);
 
     //Send the bet to the server
-    printf("Welcome to Blackjack, type your bet\n");
+    printf("Type your bet\n");
     scanf("%s", buffer);
     send(connection_fd, buffer, strlen(buffer), 0);
 
     //Receive and show initial cards
-    chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
-    printf("%s", buffer);
-    send(connection_fd, "ACK", strlen("ACK")+1, 0);
+    getCards(connection_fd, buffer);
 
     //if insurance is possible
     insurance(connection_fd, buffer);
 
     //Check for win communication
-    printf("checking for win\n");
+    printf("\n");
     checkforwin(connection_fd, buffer);
-        
-    /*while(1)
-    {
-        printf("Enter a number: ");
-        // Prepare the message
-        scanf("%s", buffer);
-        send(connection_fd, buffer, strlen(buffer)+1, 0);
-        
-        // Get the reply from the server
-        chars_read = recvMessage(connection_fd, buffer, BUFFER_SIZE);
-        if (chars_read <= 0)
-            break;
-        // Give feedback to the user
-        printf("%s\n", buffer);
-        // Finish when the game is won
-        if (!strncmp(buffer, "Right", 6))
-        {
-            printf("Congratulations!\n");
-            break;
-        }
-    }*/
+
+    //Show available player actions
+    //playerActions(connection_fd, buffer);
     
     // Close the socket to the client
     close(connection_fd);
